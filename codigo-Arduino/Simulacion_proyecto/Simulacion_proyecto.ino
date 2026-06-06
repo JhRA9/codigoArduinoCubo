@@ -1,190 +1,90 @@
 #include <FastLED.h>
 
-// pin de datos
 #define LED_PIN 6
 
-// total de leds
-#define NUM_LEDS 512
+#define LED_TYPE WS2812
+#define COLOR_ORDER GRB
 
-// brillo
-#define BRIGHTNESS 50
+#define BRIGHTNESS 180
+#define STEP_TIME 180
 
-// tamaño del cubo
-#define SIZE 8
+// Cambia este valor de 1 a 8
+#define FILAS_A_PROBAR 2
 
-CRGB leds[NUM_LEDS];
+#define LEDS_POR_FILA 8
+#define TOTAL_PANEL 64
+#define LEDS_A_PROBAR (FILAS_A_PROBAR * LEDS_POR_FILA)
 
-// matriz logica 3D
-int cube[SIZE][SIZE][SIZE];
+CRGB leds[TOTAL_PANEL];
 
-// convierte coordenadas a indice
-int getIndex(int x, int y, int z) {
-  return z * SIZE * SIZE + y * SIZE + x;
+uint8_t hue = 0;
+
+void setup() {
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, TOTAL_PANEL);
+  FastLED.setBrightness(BRIGHTNESS);
+
+  // Apaga todo el panel al iniciar
+  FastLED.clear();
+  FastLED.show();
+  delay(1000);
 }
 
-// limpia matriz logica
-void clearMatrix() {
-  for (int x = 0; x < SIZE; x++)
-    for (int y = 0; y < SIZE; y++)
-      for (int z = 0; z < SIZE; z++)
-        cube[x][y][z] = 0;
+void loop() {
+  apagarTodo();
+  culebraIda();
+  delay(300);
+
+  apagarTodo();
+  culebraRegreso();
+  delay(300);
 }
 
-// renderiza matriz a leds
-void renderCube(CRGB color) {
-  for (int x = 0; x < SIZE; x++) {
-    for (int y = 0; y < SIZE; y++) {
-      for (int z = 0; z < SIZE; z++) {
-
-        if (cube[x][y][z] == 1)
-          leds[getIndex(x, y, z)] = color;
-        else
-          leds[getIndex(x, y, z)] = CRGB::Black;
-
-      }
-    }
+// Apaga los 64 LEDs
+void apagarTodo() {
+  for (int i = 0; i < TOTAL_PANEL; i++) {
+    leds[i] = CRGB::Black;
   }
+
   FastLED.show();
 }
 
-// enciende voxel logico
-void setVoxel(int x, int y, int z) {
-  if (x >= 0 && x < SIZE && y >= 0 && y < SIZE && z >= 0 && z < SIZE)
-    cube[x][y][z] = 1;
-}
+// Culebra arcoiris solo en las filas indicadas
+void culebraIda() {
+  for (int i = 0; i < LEDS_A_PROBAR; i++) {
+    limpiarZonaPrueba();
 
-// apaga todo
-void clearCube() {
-  clearMatrix();
-  renderCube(CRGB::Black);
-}
+    if (i - 3 >= 0) leds[i - 3] = CHSV(hue - 45, 255, 50);
+    if (i - 2 >= 0) leds[i - 2] = CHSV(hue - 30, 255, 100);
+    if (i - 1 >= 0) leds[i - 1] = CHSV(hue - 15, 255, 160);
 
-// plano XY
-void planoXY(int z) {
-  clearMatrix();
+    leds[i] = CHSV(hue, 255, 255);
 
-  for (int x = 0; x < SIZE; x++)
-    for (int y = 0; y < SIZE; y++)
-      setVoxel(x, y, z);
+    FastLED.show();
+    delay(STEP_TIME);
 
-  renderCube(CRGB::Blue);
-}
-
-// plano XZ
-void planoXZ(int y) {
-  clearMatrix();
-
-  for (int x = 0; x < SIZE; x++)
-    for (int z = 0; z < SIZE; z++)
-      setVoxel(x, y, z);
-
-  renderCube(CRGB::Red);
-}
-
-// plano YZ
-void planoYZ(int x) {
-  clearMatrix();
-
-  for (int y = 0; y < SIZE; y++)
-    for (int z = 0; z < SIZE; z++)
-      setVoxel(x, y, z);
-
-  renderCube(CRGB::Green);
-}
-
-// cubo completo
-void cuboCompleto() {
-  clearMatrix();
-
-  for (int x = 0; x < SIZE; x++)
-    for (int y = 0; y < SIZE; y++)
-      for (int z = 0; z < SIZE; z++)
-        setVoxel(x, y, z);
-
-  renderCube(CRGB::White);
-}
-
-// barrido en Z
-void barridoXY() {
-  for (int z = 0; z < SIZE; z++) {
-    planoXY(z);
-    delay(150);
+    hue += 12;
   }
 }
 
-// expansion desde centro
-void expansionCentro() {
-  int c = SIZE / 2;
+// Culebra blanca solo en las filas indicadas
+void culebraRegreso() {
+  for (int i = LEDS_A_PROBAR - 1; i >= 0; i--) {
+    limpiarZonaPrueba();
 
-  for (int r = 0; r <= c; r++) {
-    clearMatrix();
+    if (i + 3 < LEDS_A_PROBAR) leds[i + 3] = CRGB(50, 50, 50);
+    if (i + 2 < LEDS_A_PROBAR) leds[i + 2] = CRGB(100, 100, 100);
+    if (i + 1 < LEDS_A_PROBAR) leds[i + 1] = CRGB(160, 160, 160);
 
-    for (int x = c - r; x <= c + r; x++)
-      for (int y = c - r; y <= c + r; y++)
-        for (int z = c - r; z <= c + r; z++)
-          setVoxel(x, y, z);
+    leds[i] = CRGB::White;
 
-    renderCube(CRGB::Purple);
-    delay(200);
+    FastLED.show();
+    delay(STEP_TIME);
   }
 }
 
-// rotacion de planos
-void rotacionPlanos() {
-  for (int i = 0; i < SIZE; i++) {
-    planoXY(i);
-    delay(100);
-
-    planoYZ(i);
-    delay(100);
-
-    planoXZ(i);
-    delay(100);
+// Limpia todo, pero mantiene la prueba limitada
+void limpiarZonaPrueba() {
+  for (int i = 0; i < TOTAL_PANEL; i++) {
+    leds[i] = CRGB::Black;
   }
-}
-
-// animacion tipo lluvia
-void lluvia() {
-  for (int i = 0; i < 30; i++) {
-
-    int x = random(0, SIZE);
-    int y = random(0, SIZE);
-
-    for (int z = SIZE - 1; z >= 0; z--) {
-      clearMatrix();
-      setVoxel(x, y, z);
-      renderCube(CRGB::Cyan);
-      delay(60);
-    }
-  }
-}
-
-// configuracion inicial
-void setup() {
-  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(BRIGHTNESS);
-
-  clearCube();
-}
-
-// ciclo principal
-void loop() {
-
-  barridoXY();
-  delay(300);
-
-  expansionCentro();
-  delay(300);
-
-  rotacionPlanos();
-  delay(300);
-
-  lluvia();
-  delay(300);
-
-  cuboCompleto();
-  delay(500);
-
-  clearCube();
-  delay(500);
 }
